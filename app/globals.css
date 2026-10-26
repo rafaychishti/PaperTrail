@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* PaperTrail — an exam script with an examiner's red pen.
+   Paper, ink, ruled lines, the red margin line, and red marks. */
+:root {
+  --paper: #fafbfd;
+  --sheet: #ffffff;
+  --ink: #1c2b48;
+  --muted: #5e6a80;
+  --rule: #d9e2f0;
+  --margin: #eab2b9;
+  --red: #c2182b;
+  --red-wash: #fbecee;
+  --wash: #eef2f8;
+  --ok: #1f6f4a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111827;
+    --sheet: #172033;
+    --ink: #e3e9f3;
+    --muted: #9aa6bd;
+    --rule: #26334d;
+    --margin: #6b2f3a;
+    --red: #ff6b78;
+    --red-wash: #3a1d26;
+    --wash: #1c2740;
+    --ok: #6fd3a2;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111827;
+  --sheet: #172033;
+  --ink: #e3e9f3;
+  --muted: #9aa6bd;
+  --rule: #26334d;
+  --margin: #6b2f3a;
+  --red: #ff6b78;
+  --red-wash: #3a1d26;
+  --wash: #1c2740;
+  --ok: #6fd3a2;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-margin: var(--margin);
+  --color-red: var(--red);
+  --color-red-wash: var(--red-wash);
+  --color-wash: var(--wash);
+  --color-ok: var(--ok);
+  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-hand: "Kalam", "Segoe Print", cursive;
+}
+
+html { background: var(--paper); }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ruled exam paper with the red margin line on the right, where examiners mark. */
+.ruled {
+  --line: 2rem;
+  background-color: var(--sheet);
+  background-image:
+    linear-gradient(to left, transparent 4.5rem, var(--margin) 4.5rem, var(--margin) calc(4.5rem + 1px), transparent calc(4.5rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px), var(--rule) var(--line));
+  line-height: var(--line);
+}
+.ruled-input {
+  background: transparent;
+  line-height: 2rem;
+  padding-top: 0.15rem;
+  resize: vertical;
+}
+
+.hand { font-family: var(--font-hand); }
+
+/* The examiner's circled total. */
+.circled {
+  border: 2.5px solid var(--red);
+  border-radius: 48% 52% 50% 46% / 55% 45% 52% 48%;
+  transform: rotate(-4deg);
+}
+
+:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ink-in { animation: ink 420ms ease-out both; }
+  @keyframes ink { from { opacity: 0; transform: translateY(2px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+}
