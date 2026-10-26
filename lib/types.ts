@@ -14,6 +14,10 @@ export type MarkPoint = {
   description: string; // what the examiner looks for
   dependsOn?: string[]; // ids of M marks this A mark needs
   followThrough?: boolean; // "ft": award if correct for the student's own earlier value
+  /** Demo mode only (no API key): working that earns this point. Each inner
+   *  list is one accepted form, and every piece in it must appear. Pieces are
+   *  compared after normalising (no spaces, lower case, x² → x^2, − → -). */
+  demoCues?: string[][];
 };
 
 export type Question = {
@@ -48,4 +52,5 @@ export type MarkResult = {
   confidence: "high" | "medium" | "low";
   readingIssues: string; // e.g. unclear handwriting in a photo
   ruleAdjustments: number;
+  mode: "ai" | "demo"; // "demo" = keyword checks without the AI
 };

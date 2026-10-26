@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getQuestion, QUESTIONS } from "@/lib/questions";
 import MarkingDesk from "@/components/MarkingDesk";
+import { isDemo } from "@/lib/mode";
 
 export function generateStaticParams() {
   return QUESTIONS.map((q) => ({ id: q.id }));
@@ -20,7 +21,7 @@ export default async function PracticePage({ params }: { params: Promise<{ id: s
         <span className="self-end font-bold tabular-nums">[{q.totalMarks}]</span>
       </div>
       <div className="mt-8">
-        <MarkingDesk questionId={q.id} />
+        <MarkingDesk questionId={q.id} demo={isDemo()} />
       </div>
     </div>
   );

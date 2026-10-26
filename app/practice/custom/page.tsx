@@ -1,4 +1,5 @@
 import MarkingDesk from "@/components/MarkingDesk";
+import { isDemo } from "@/lib/mode";
 
 export default function CustomPracticePage() {
   return (
@@ -9,7 +10,7 @@ export default function CustomPracticePage() {
         Nothing you paste is published or shared.
       </p>
       <div className="mt-8">
-        <MarkingDesk questionId="custom" />
+        <MarkingDesk questionId="custom" demo={isDemo()} />
       </div>
     </div>
   );

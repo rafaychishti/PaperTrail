@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getAnonId } from "@/lib/client";
+import { getAnonId, getLocalAttempts } from "@/lib/client";
 
 type Attempt = { id: string; question_id: string; topic: string; score: number; max_score: number; created_at: string };
 
@@ -17,12 +17,16 @@ export default function ProgressPage() {
     fetch(`/api/attempts?anon=${encodeURIComponent(anon)}`)
       .then((r) => r.json())
       .then((j) => {
+        if (j.storage === "off") {
+          setAttempts(getLocalAttempts());
+          setNote("Saved in this browser only. Progress moves to the database once Supabase is set up.");
+          return;
+        }
         setAttempts(j.attempts ?? []);
-        if (j.storage === "off") setNote("Progress saving isn't switched on for this copy of PaperTrail.");
         if (j.error) setNote(j.error);
       })
       .catch(() => {
-        setAttempts([]);
+        setAttempts(getLocalAttempts());
         setNote("Couldn't load your progress. Check your connection.");
       });
   }, []);

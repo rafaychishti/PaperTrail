@@ -22,6 +22,21 @@ ILAP 2027 · AI-Powered Solutions · Digital Transformation · SDG 4 (Quality Ed
 3. **Students can challenge any mark.** Challenges are saved for a teacher to
    review and used to measure accuracy.
 
+## Demo mode (no API key needed)
+
+With no `ANTHROPIC_API_KEY`, PaperTrail runs in **demo mode**: every screen
+works, but marking checks your typed working against the expected steps for
+each mark point (`demoCues` in `lib/questions.ts`) instead of using the AI.
+The same rule checks run on top. A banner shows when demo mode is on, and
+progress is saved in your browser.
+
+Demo mode can't read photos, give follow-through (ft) marks, accept
+unusual-but-valid methods, or mark your own pasted questions. Those need the
+AI. **Demo mode is for testing only. The ILAP entry must use real AI marking.**
+
+To switch to AI marking, add the key to `.env.local` and restart `npm run dev`
+(or redeploy on Vercel).
+
 ## Run it on Windows
 
 Needs Node.js 20 or newer.
@@ -29,8 +44,7 @@ Needs Node.js 20 or newer.
 ```powershell
 npm install
 copy .env.example .env.local
-# put your Anthropic key in .env.local (Supabase is optional)
-npm run dev
+npm run dev        # starts in demo mode; add a key to .env.local for AI marking
 ```
 
 Open http://localhost:3000.

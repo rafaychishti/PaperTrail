@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import type { MarkResult } from "@/lib/types";
-import { getAnonId, resizePhoto } from "@/lib/client";
+import { getAnonId, resizePhoto, saveLocalAttempt } from "@/lib/client";
 import MarkedScript from "./MarkedScript";
 
 type Photo = { mediaType: "image/jpeg"; data: string; preview: string };
 
-export default function MarkingDesk({ questionId }: { questionId: string }) {
+export default function MarkingDesk({ questionId, demo = false }: { questionId: string; demo?: boolean }) {
   const isCustom = questionId === "custom";
   const [customQuestion, setCustomQuestion] = useState("");
   const [customScheme, setCustomScheme] = useState("");
@@ -52,6 +52,9 @@ export default function MarkingDesk({ questionId }: { questionId: string }) {
       if (!res.ok) throw new Error(json.error || "Marking failed.");
       setResult(json.result);
       setAttemptId(json.attemptId);
+      if (!json.saved) {
+        saveLocalAttempt({ question_id: json.result.questionId, topic: json.topic, score: json.result.score, max_score: json.result.maxScore });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -68,7 +71,16 @@ export default function MarkingDesk({ questionId }: { questionId: string }) {
     return <MarkedScript result={result} answer={answer} photos={photos.map((p) => p.preview)} attemptId={attemptId} onRetry={tryAgain} />;
   }
 
-  const canSubmit = !busy && (answer.trim() || photos.length) && (!isCustom || (customQuestion.trim() && customScheme.trim()));
+  const canSubmit = !busy && (answer.trim() || (!demo && photos.length)) && (!isCustom || (customQuestion.trim() && customScheme.trim()));
+
+  if (demo && isCustom) {
+    return (
+      <p className="max-w-[42rem] rounded-sm bg-wash px-5 py-4">
+        Marking your own question needs the AI, which switches on once an API key is added. Until then, try one of the
+        built-in questions.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -100,9 +112,9 @@ export default function MarkingDesk({ questionId }: { questionId: string }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple className="sr-only" id="photo"
-          onChange={(e) => addPhotos(e.target.files)} disabled={photos.length >= 2} />
+          onChange={(e) => addPhotos(e.target.files)} disabled={demo || photos.length >= 2} />
         <label htmlFor="photo"
-          className={`cursor-pointer rounded-md border border-ink/30 px-4 py-2.5 text-[15px] hover:border-red hover:text-red ${photos.length >= 2 ? "pointer-events-none opacity-40" : ""}`}>
+          className={`cursor-pointer rounded-md border border-ink/30 px-4 py-2.5 text-[15px] hover:border-red hover:text-red ${demo || photos.length >= 2 ? "pointer-events-none opacity-40" : ""}`}>
           Add a photo of your working
         </label>
         {photos.map((p, i) => (
@@ -115,7 +127,9 @@ export default function MarkingDesk({ questionId }: { questionId: string }) {
             </button>
           </span>
         ))}
-        <span className="text-sm text-muted">Up to 2 photos. They’re used for marking only and never saved.</span>
+        <span className="text-sm text-muted">
+          {demo ? "Photo marking needs the AI. In demo mode, type your working." : "Up to 2 photos. They’re used for marking only and never saved."}
+        </span>
       </div>
 
       {error && <p role="alert" className="rounded-sm bg-red-wash px-4 py-3 text-red">{error}</p>}

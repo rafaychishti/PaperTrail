@@ -36,3 +36,26 @@ export async function resizePhoto(file: File): Promise<{ mediaType: "image/jpeg"
     URL.revokeObjectURL(url);
   }
 }
+
+/** When the database isn't set up (e.g. in demo mode), progress is kept in
+ *  this browser instead, so the progress page still works. */
+export type LocalAttempt = { id: string; question_id: string; topic: string; score: number; max_score: number; created_at: string };
+
+export function saveLocalAttempt(a: Omit<LocalAttempt, "id" | "created_at">) {
+  try {
+    const list = getLocalAttempts();
+    list.push({ ...a, id: crypto.randomUUID(), created_at: new Date().toISOString() });
+    localStorage.setItem("pt-attempts", JSON.stringify(list.slice(-200)));
+  } catch {
+    /* storage unavailable: progress just isn't kept */
+  }
+}
+
+export function getLocalAttempts(): LocalAttempt[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem("pt-attempts") || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}

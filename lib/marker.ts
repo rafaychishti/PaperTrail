@@ -122,5 +122,6 @@ export async function markAnswer(input: MarkInput): Promise<MarkResult> {
     confidence: ruled.adjustments > 1 && parsed.confidence === "high" ? "medium" : parsed.confidence,
     readingIssues: parsed.reading_issues,
     ruleAdjustments: ruled.adjustments,
+    mode: "ai",
   };
 }

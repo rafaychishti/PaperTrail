@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { isDemo } from "@/lib/mode";
 
 export const metadata: Metadata = {
   title: "PaperTrail AI",
@@ -20,6 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen">
+        {isDemo() && (
+          <div className="bg-ink px-4 py-2 text-center text-sm text-paper">
+            Demo mode: marking uses step checks, not AI. Add an Anthropic API key to switch on AI marking.
+          </div>
+        )}
         <header className="border-b border-rule">
           <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
             <Link href="/" className="flex items-baseline gap-1.5 text-lg font-bold">

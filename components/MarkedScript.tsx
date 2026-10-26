@@ -47,6 +47,9 @@ export default function MarkedScript({
           {result.score}/{result.maxScore}
         </span>
         <div className="max-w-[40rem]">
+          {result.mode === "demo" && (
+            <p className="mb-2 text-sm font-bold text-muted">Demo marking: checked against expected steps, not by the AI.</p>
+          )}
           <p>{result.summary}</p>
           {result.confidence !== "high" && (
             <p className="mt-2 text-sm text-muted">

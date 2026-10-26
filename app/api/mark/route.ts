@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getQuestion } from "@/lib/questions";
 import { markAnswer, type MarkInput } from "@/lib/marker";
+import { demoMark } from "@/lib/demo-marker";
+import { isDemo } from "@/lib/mode";
 import { db, isValidAnonId } from "@/lib/supabase";
 
 export const maxDuration = 60;
@@ -45,16 +47,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Paste both the question and its mark scheme." }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "Marking isn't set up yet: ANTHROPIC_API_KEY is missing on the server." }, { status: 503 });
-  }
-
   let result;
-  try {
-    result = await markAnswer({ question: question ?? null, customQuestion, customMarkScheme, answerText, images });
-  } catch (err) {
-    console.error("mark failed", err);
-    return NextResponse.json({ error: "Marking failed. Check your connection and try again." }, { status: 502 });
+  if (isDemo()) {
+    if (!question) {
+      return NextResponse.json(
+        { error: "Marking your own question needs the AI, which is switched on once an API key is added. Try a built-in question for now." },
+        { status: 400 },
+      );
+    }
+    if (!answerText.trim()) {
+      return NextResponse.json({ error: "Demo marking can't read photos. Type your working to try it." }, { status: 400 });
+    }
+    result = demoMark(question, answerText, images.length > 0);
+  } else {
+    try {
+      result = await markAnswer({ question: question ?? null, customQuestion, customMarkScheme, answerText, images });
+    } catch (err) {
+      console.error("mark failed", err);
+      return NextResponse.json({ error: "Marking failed. Check your connection and try again." }, { status: 502 });
+    }
   }
 
   // Log the attempt anonymously for the progress page and the impact study.
@@ -82,5 +93,5 @@ export async function POST(req: Request) {
     attemptId = data?.id ?? null;
   }
 
-  return NextResponse.json({ result, attemptId });
+  return NextResponse.json({ result, attemptId, topic: question?.topic ?? "Own question", saved: !!attemptId });
 }
