@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { isDemo } from "@/lib/mode";
+import AuthControl from "@/components/AuthControl";
 
 export const metadata: Metadata = {
   title: "PaperTrail AI",
@@ -29,21 +30,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         )}
         <header className="border-b border-rule">
-          <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <nav className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
             <Link href="/" className="flex items-baseline gap-1.5 text-lg font-bold">
               PaperTrail <span className="hand text-xl text-red" aria-hidden>✓</span>
             </Link>
-            <div className="flex gap-5 text-[15px]">
+            <div className="flex flex-wrap items-center gap-4 text-[15px]">
               <Link href="/" className="hover:text-red">Questions</Link>
               <Link href="/practice/custom" className="hover:text-red">Your own question</Link>
               <Link href="/progress" className="hover:text-red">Progress</Link>
+              <AuthControl />
             </div>
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-4 pb-20">{children}</main>
         <footer className="mx-auto max-w-5xl px-4 pb-10 text-sm text-muted">
           AI marking can be wrong. Treat it as a second opinion and check anything surprising with your teacher.
-          No names or logins are collected, and photos of your working are never stored.
+          Google sign-in is optional and links progress to your account. Photos of your working are never stored.
         </footer>
       </body>
     </html>

@@ -5,6 +5,7 @@ import { demoMark } from "@/lib/demo-marker";
 import { isDemo } from "@/lib/mode";
 import { db, isValidAnonId } from "@/lib/supabase";
 import { readJsonObject } from "@/lib/request";
+import { getAuthenticatedUser } from "@/lib/supabase-auth";
 
 export const maxDuration = 60;
 
@@ -78,6 +79,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Paste both the question and its mark scheme." }, { status: 400 });
   }
 
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (error) {
+    console.error("mark auth check failed", error);
+    return NextResponse.json({ error: "Couldn't verify your sign-in. Please refresh and try again." }, { status: 503 });
+  }
+
   let result;
   if (isDemo()) {
     if (!question) {
@@ -107,11 +116,12 @@ export async function POST(req: Request) {
   let saveWarning: string | null = null;
   const anonId = body.anonId;
   const supabase = db();
-  if (supabase && isValidAnonId(anonId)) {
+  if (supabase && (isValidAnonId(anonId) || user)) {
     const { data, error } = await supabase
       .from("attempts")
       .insert({
-        anon_id: anonId,
+        anon_id: isValidAnonId(anonId) ? anonId : null,
+        user_id: user?.id ?? null,
         question_id: result.questionId,
         topic: question?.topic ?? "Own question",
         score: result.score,

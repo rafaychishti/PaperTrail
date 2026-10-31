@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ status: "ok", mode, storage: "off" });
   }
 
-  const { error } = await supabase.from("attempts").select("id").limit(1);
+  const { error } = await supabase.from("attempts").select("id, user_id").limit(1);
   if (error) {
     console.error("health check failed", error.message);
     return NextResponse.json({ status: "degraded", mode, storage: "unavailable" }, { status: 503 });

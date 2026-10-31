@@ -67,7 +67,25 @@ Open http://localhost:3000.
 Optional, for progress tracking: create a Supabase project, run
 `supabase/schema.sql` in its SQL editor, and add `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`. Without them, marking still works
-and the progress page says saving is off.
+and progress stays in this browser.
+
+## Optional Google sign-in
+
+1. In Supabase, enable **Google** under **Authentication → Providers** and enter
+   the OAuth client ID and secret from your Google Cloud project.
+2. In Google Cloud, add the Supabase callback URL shown by that provider as an
+   authorized redirect URI.
+3. In **Authentication → URL Configuration**, add
+   `http://localhost:3000/auth/callback` and
+   `https://papertrail-ai-rouge.vercel.app/auth/callback` to the redirect URL
+   allow list. Set the site URL to your production deployment URL.
+4. Run the current `supabase/schema.sql` in the SQL editor. It safely adds the
+   nullable account link to existing attempts tables.
+
+Sign-in is optional. When signed in, new attempts are linked to the Supabase
+user ID and progress can follow the account across browsers. Existing anonymous
+attempts on the same browser remain visible. Google passwords are never handled
+by PaperTrail. Keep Supabase service-role credentials server-side only.
 
 Check the marking rules: `npm run test:rules`
 
@@ -85,8 +103,8 @@ If a database write fails after marking, the result is still shown and a warning
 explains that progress was saved locally instead.
 
 When enabling Supabase, scores and point-by-point marking feedback are stored
-anonymously so progress and challenges work. Photos are sent to the configured
-AI provider for marking but are never stored.
+anonymously or linked to the signed-in Supabase user so progress and challenges
+work. Photos are sent to the configured AI provider for marking but are never stored.
 
 ## Deploy
 
@@ -97,7 +115,8 @@ put server keys in client-side environment variables.
 
 ## Privacy and ethics
 
-- No names, emails or accounts. Each browser gets a random id.
+- No account is required. Anonymous use gets a random browser id; optional Google
+  sign-in uses the account email for authentication and links progress.
 - Photos are sent for marking and never stored.
 - The built-in questions are original, written in Cambridge style. The app
   does not host Cambridge papers or mark schemes; in "Your own question" mode

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { isValidAnonId } from "../lib/supabase.ts";
 import { readJsonObject } from "../lib/request.ts";
+import { safeReturnPath } from "../lib/auth-utils.ts";
 
 async function main() {
   let passed = 0;
@@ -17,6 +18,14 @@ async function main() {
   await test("rejects malformed or non-v4 anonymous IDs", () => {
     assert.equal(isValidAnonId("not-a-uuid"), false);
     assert.equal(isValidAnonId("f47ac10b-58cc-1372-a567-0e02b2c3d479"), false);
+  });
+
+  await test("accepts local return paths and rejects external redirects", () => {
+    assert.equal(safeReturnPath("/progress"), "/progress");
+    assert.equal(safeReturnPath("https://example.com"), "/");
+    assert.equal(safeReturnPath("//example.com"), "/");
+    assert.equal(safeReturnPath("/\\example.com"), "/");
+    assert.equal(safeReturnPath(null, "/progress"), "/progress");
   });
 
   await test("reads a JSON object request", async () => {
