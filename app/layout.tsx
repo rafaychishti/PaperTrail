@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Mark your past-paper answers against the mark scheme, point by point.",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+// Read keys at request time, so adding a key never needs a rebuild.
+export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         {isDemo() && (
           <div className="bg-ink px-4 py-2 text-center text-sm text-paper">
-            Demo mode: marking uses step checks, not AI. Add an Anthropic API key to switch on AI marking.
+            Demo mode: marking uses step checks, not AI. Add an OpenRouter or Anthropic key to switch on AI marking.
           </div>
         )}
         <header className="border-b border-rule">

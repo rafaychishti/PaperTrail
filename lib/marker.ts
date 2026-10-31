@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MarkPoint, MarkResult, Question } from "./types";
 import { applyRules, schemeFromAi, type AiPoint } from "./rules";
+import { parseMarkerJson } from "./parse-json";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
 
@@ -69,6 +70,73 @@ function formatScheme(scheme: MarkPoint[]): string {
     .join("\n");
 }
 
+type Images = MarkInput["images"];
+
+/** "openrouter" when an OpenRouter key is set (free open models), else Claude. */
+export function provider(): "openrouter" | "anthropic" {
+  return process.env.OPENROUTER_API_KEY ? "openrouter" : "anthropic";
+}
+
+async function callClaude(intro: string, answerBlock: string, images: Images): Promise<string> {
+  const content: Anthropic.ContentBlockParam[] = [{ type: "text", text: intro }];
+  for (const img of images) {
+    content.push({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.data } });
+  }
+  content.push({ type: "text", text: answerBlock });
+  const res = await new Anthropic().messages.create({
+    model: MODEL,
+    max_tokens: 2000,
+    system: SYSTEM,
+    messages: [{ role: "user", content }],
+    output_config: { format: { type: "json_schema", schema: SCHEMA as unknown as Record<string, unknown> } },
+  });
+  const text = res.content.find((b) => b.type === "text");
+  if (!text || text.type !== "text") throw new Error("The marker returned no result.");
+  return text.text;
+}
+
+// Free open models via OpenRouter. The main model is tried first; if it is busy
+// or rate-limited, OpenRouter falls through to the backups (all free).
+const OR_MODELS = (process.env.OPENROUTER_MODELS || "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free")
+  .split(",").map((m) => m.trim()).filter(Boolean);
+
+async function callOpenRouter(intro: string, answerBlock: string, images: Images): Promise<string> {
+  const content: unknown[] = [{ type: "text", text: intro }];
+  for (const img of images) {
+    content.push({ type: "image_url", image_url: { url: `data:${img.mediaType};base64,${img.data}` } });
+  }
+  content.push({ type: "text", text: answerBlock });
+
+  const res = await fetch(`${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}/chat/completions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "content-type": "application/json",
+      "x-title": "PaperTrail AI",
+    },
+    body: JSON.stringify({
+      model: OR_MODELS[0],
+      models: OR_MODELS,
+      max_tokens: 2000,
+      temperature: 0,
+      messages: [
+        { role: "system", content: `${SYSTEM}\n\nReply with ONLY a JSON object matching the schema. No other text.` },
+        { role: "user", content },
+      ],
+      response_format: { type: "json_schema", json_schema: { name: "marking", strict: true, schema: SCHEMA } },
+      // Never route to a host that trains on prompts: these are students' answers.
+      provider: { data_collection: "deny" },
+    }),
+    signal: AbortSignal.timeout(55_000),
+  });
+  if (res.status === 429) throw new Error("The free AI model is busy (daily or per-minute limit reached). Try again in a minute.");
+  if (!res.ok) throw new Error(`OpenRouter error ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const json = await res.json();
+  const text = json?.choices?.[0]?.message?.content;
+  if (typeof text !== "string" || !text.trim()) throw new Error("The marker returned no result.");
+  return text;
+}
+
 export async function markAnswer(input: MarkInput): Promise<MarkResult> {
   const q = input.question;
   const questionText = q ? q.prompt : (input.customQuestion ?? "").trim();
@@ -79,33 +147,12 @@ export async function markAnswer(input: MarkInput): Promise<MarkResult> {
     ? `Question (${q.subject}, ${q.paper}, ${q.topic}) [${q.totalMarks} marks]:\n${questionText}\n\nMark scheme — return one entry in "points" for every line, using the same id, type and max_marks:\n${schemeText}${q.commonErrors?.length ? `\n\nCommon errors to watch for:\n- ${q.commonErrors.join("\n- ")}` : ""}`
     : `Question:\n${questionText}\n\nMark scheme as provided by the student (it may be copied loosely from a published scheme). Split it into separate mark points in order, giving each an id such as M1, A1, B1 and its type and max_marks, then mark each one:\n${schemeText}`;
 
-  const content: Anthropic.ContentBlockParam[] = [{ type: "text", text: intro }];
-  for (const img of input.images) {
-    content.push({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.data } });
-  }
-  content.push({
-    type: "text",
-    text: `Student's answer${input.images.length ? " (typed part; photos of working are attached above)" : ""}:\n<student_answer>\n${input.answerText.trim() || "(no typed answer — see photos)"}\n</student_answer>`,
-  });
+  const answerBlock = `Student's answer${input.images.length ? " (typed part; photos of working are attached above)" : ""}:\n<student_answer>\n${input.answerText.trim() || "(no typed answer — see photos)"}\n</student_answer>`;
 
-  const client = new Anthropic();
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 2000,
-    system: SYSTEM,
-    messages: [{ role: "user", content }],
-    output_config: { format: { type: "json_schema", schema: SCHEMA as unknown as Record<string, unknown> } },
-  });
-
-  const text = res.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") throw new Error("The marker returned no result.");
-  const parsed = JSON.parse(text.text) as {
-    points: AiPoint[];
-    summary: string;
-    next_step: string;
-    confidence: MarkResult["confidence"];
-    reading_issues: string;
-  };
+  const raw = provider() === "openrouter"
+    ? await callOpenRouter(intro, answerBlock, input.images)
+    : await callClaude(intro, answerBlock, input.images);
+  const parsed = parseMarkerJson(raw);
 
   // For built-in questions we trust our own scheme; for pasted ones we use the
   // scheme the AI read, then apply the same rule checks either way.

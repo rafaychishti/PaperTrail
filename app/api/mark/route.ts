@@ -64,6 +64,8 @@ export async function POST(req: Request) {
       result = await markAnswer({ question: question ?? null, customQuestion, customMarkScheme, answerText, images });
     } catch (err) {
       console.error("mark failed", err);
+      const msg = (err as Error).message || "";
+      if (msg.startsWith("The free AI model is busy")) return NextResponse.json({ error: msg }, { status: 429 });
       return NextResponse.json({ error: "Marking failed. Check your connection and try again." }, { status: 502 });
     }
   }

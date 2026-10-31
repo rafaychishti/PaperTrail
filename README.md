@@ -22,9 +22,24 @@ ILAP 2027 · AI-Powered Solutions · Digital Transformation · SDG 4 (Quality Ed
 3. **Students can challenge any mark.** Challenges are saved for a teacher to
    review and used to measure accuracy.
 
+## Choosing the AI
+
+PaperTrail works with either:
+
+- **Free: OpenRouter** (`OPENROUTER_API_KEY`). Uses Google's open
+  **Gemma 4 31B** model (`google/gemma-4-31b-it:free`), with Gemma 4 26B as a
+  backup. It reads photos and returns structured marking. Requests are only
+  sent to hosts that don't train on prompts (`data_collection: "deny"`).
+  Free limit: about 50 markings a day and 20 a minute.
+- **Paid: Claude** (`ANTHROPIC_API_KEY`). The most accurate option, and the
+  cheapest Claude model is `claude-haiku-5-5`.
+
+If both keys are set, OpenRouter is used. Either way, the same rule checks run
+on the AI's marks.
+
 ## Demo mode (no API key needed)
 
-With no `ANTHROPIC_API_KEY`, PaperTrail runs in **demo mode**: every screen
+With no AI key at all, PaperTrail runs in **demo mode**: every screen
 works, but marking checks your typed working against the expected steps for
 each mark point (`demoCues` in `lib/questions.ts`) instead of using the AI.
 The same rule checks run on top. A banner shows when demo mode is on, and
