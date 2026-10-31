@@ -17,12 +17,14 @@ export default function MarkedScript({
   answer,
   photos,
   attemptId,
+  saveWarning,
   onRetry,
 }: {
   result: MarkResult;
   answer: string;
   photos: string[];
   attemptId: string | null;
+  saveWarning: string;
   onRetry: () => void;
 }) {
   const [flagged, setFlagged] = useState<Record<string, "sending" | "sent" | "error">>({});
@@ -31,16 +33,22 @@ export default function MarkedScript({
   async function challenge(pointId: string) {
     if (!attemptId) return;
     setFlagged((f) => ({ ...f, [pointId]: "sending" }));
-    const res = await fetch("/api/flag", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ attemptId, anonId: getAnonId(), pointId }),
-    }).catch(() => null);
-    setFlagged((f) => ({ ...f, [pointId]: res?.ok ? "sent" : "error" }));
+    try {
+      const res = await fetch("/api/flag", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attemptId, anonId: getAnonId(), pointId }),
+      });
+      if (!res.ok) throw new Error("Could not save your challenge.");
+      setFlagged((f) => ({ ...f, [pointId]: "sent" }));
+    } catch {
+      setFlagged((f) => ({ ...f, [pointId]: "error" }));
+    }
   }
 
   return (
     <div className="space-y-8">
+      {saveWarning && <p role="status" className="rounded-sm bg-wash px-4 py-3 text-muted">{saveWarning}</p>}
       {/* Total, circled the way an examiner does it */}
       <div className="flex flex-wrap items-center gap-6">
         <span className="hand circled ink-in grid h-20 w-24 place-items-center text-4xl text-red" aria-label={`Score ${result.score} out of ${result.maxScore}`}>
@@ -78,9 +86,9 @@ export default function MarkedScript({
                   <p className="pb-1 text-[15px] leading-6 text-red">Rule check: {p.adjustedByRules}</p>
                 )}
                 {attemptId && (
-                  <button type="button" onClick={() => challenge(p.id)} disabled={!!flagged[p.id]}
+                  <button type="button" onClick={() => challenge(p.id)} disabled={flagged[p.id] === "sending" || flagged[p.id] === "sent"}
                     className="mb-2 text-sm text-muted underline decoration-dotted underline-offset-4 hover:text-red disabled:no-underline">
-                    {flagged[p.id] === "sent" ? "Challenge saved for review" : flagged[p.id] === "error" ? "Couldn't send. Try again later." : flagged[p.id] === "sending" ? "Sending…" : "I think this mark is wrong"}
+                    {flagged[p.id] === "sent" ? "Challenge saved for review" : flagged[p.id] === "error" ? "Couldn't send. Try again" : flagged[p.id] === "sending" ? "Sending…" : "I think this mark is wrong"}
                   </button>
                 )}
               </div>

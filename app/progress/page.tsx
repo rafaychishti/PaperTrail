@@ -14,21 +14,28 @@ export default function ProgressPage() {
 
   useEffect(() => {
     const anon = getAnonId();
-    fetch(`/api/attempts?anon=${encodeURIComponent(anon)}`)
-      .then((r) => r.json())
-      .then((j) => {
+    async function loadProgress() {
+      try {
+        const response = await fetch(`/api/attempts?anon=${encodeURIComponent(anon)}`, { cache: "no-store" });
+        const j = await response.json();
+        if (!response.ok) throw new Error(j.error || "Couldn't load your progress.");
         if (j.storage === "off") {
           setAttempts(getLocalAttempts());
           setNote("Saved in this browser only. Progress moves to the database once Supabase is set up.");
           return;
         }
-        setAttempts(j.attempts ?? []);
-        if (j.error) setNote(j.error);
-      })
-      .catch(() => {
+        const local = getLocalAttempts();
+        const combined = [...(j.attempts ?? []), ...local]
+          .sort((a: Attempt, b: Attempt) => a.created_at.localeCompare(b.created_at))
+          .slice(-200);
+        setAttempts(combined);
+        if (local.length) setNote("Includes attempts saved on this browser.");
+      } catch (error) {
         setAttempts(getLocalAttempts());
-        setNote("Couldn't load your progress. Check your connection.");
-      });
+        setNote(`${error instanceof Error ? error.message : "Couldn't load your progress."} Showing attempts saved in this browser.`);
+      }
+    }
+    void loadProgress();
   }, []);
 
   if (attempts === null) return <p className="py-10 text-muted">Loading your progress…</p>;

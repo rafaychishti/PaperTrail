@@ -71,9 +71,29 @@ and the progress page says saving is off.
 
 Check the marking rules: `npm run test:rules`
 
+## Backend
+
+The Next.js API routes handle marking, anonymous progress, and mark challenges.
+Supabase is optional: without it, scores are kept in the current browser;
+with it, attempts and challenges are stored in the database. The service-role
+key is used only by server routes and must never be exposed as a `NEXT_PUBLIC_`
+variable. Run `supabase/schema.sql` before enabling database storage.
+
+`GET /api/health` reports whether the app is in demo or AI mode and whether
+Supabase is connected. It does not expose credentials or database error details.
+If a database write fails after marking, the result is still shown and a warning
+explains that progress was saved locally instead.
+
+When enabling Supabase, scores and point-by-point marking feedback are stored
+anonymously so progress and challenges work. Photos are sent to the configured
+AI provider for marking but are never stored.
+
 ## Deploy
 
-Push to GitHub, import into Vercel, and add the same environment variables.
+Push to GitHub, import into Vercel, and add the same server-side environment
+variables (`ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`; optionally
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`). Never commit `.env.local` or
+put server keys in client-side environment variables.
 
 ## Privacy and ethics
 

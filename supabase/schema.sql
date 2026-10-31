@@ -27,6 +27,8 @@ create table if not exists public.flags (
   teacher_agrees boolean,
   created_at  timestamptz not null default now()
 );
+create index if not exists flags_review_idx on public.flags (reviewed, created_at);
+create index if not exists flags_attempt_point_idx on public.flags (attempt_id, point_id);
 
 -- Row-level security on, no policies: the public anon key can read or write
 -- nothing. Only the server (service role key) reaches these tables.

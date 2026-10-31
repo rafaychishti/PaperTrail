@@ -17,6 +17,7 @@ export default function MarkingDesk({ questionId, demo = false }: { questionId: 
   const [error, setError] = useState("");
   const [result, setResult] = useState<MarkResult | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function addPhotos(files: FileList | null) {
@@ -48,10 +49,12 @@ export default function MarkingDesk({ questionId, demo = false }: { questionId: 
           anonId: getAnonId(),
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Marking failed.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Marking failed.");
+      if (!json?.result) throw new Error("The server returned an invalid marking. Please try again.");
       setResult(json.result);
       setAttemptId(json.attemptId);
+      setSaveWarning(typeof json.saveWarning === "string" ? json.saveWarning : "");
       if (!json.saved) {
         saveLocalAttempt({ question_id: json.result.questionId, topic: json.topic, score: json.result.score, max_score: json.result.maxScore });
       }
@@ -65,10 +68,11 @@ export default function MarkingDesk({ questionId, demo = false }: { questionId: 
   function tryAgain() {
     setResult(null);
     setAttemptId(null);
+    setSaveWarning("");
   }
 
   if (result) {
-    return <MarkedScript result={result} answer={answer} photos={photos.map((p) => p.preview)} attemptId={attemptId} onRetry={tryAgain} />;
+    return <MarkedScript result={result} answer={answer} photos={photos.map((p) => p.preview)} attemptId={attemptId} saveWarning={saveWarning} onRetry={tryAgain} />;
   }
 
   const canSubmit = !busy && (answer.trim() || (!demo && photos.length)) && (!isCustom || (customQuestion.trim() && customScheme.trim()));
@@ -105,9 +109,11 @@ export default function MarkingDesk({ questionId, demo = false }: { questionId: 
         <label htmlFor="answer" className="font-bold">Your answer</label>
         <p className="text-sm text-muted">Show your working, one step per line, as you would in the exam.</p>
         <div className="ruled mt-2 rounded-sm border border-rule pl-4 pr-[5rem]">
-          <textarea id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} rows={9}
+          <textarea id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} rows={9} maxLength={6000}
+            aria-describedby="answer-count"
             placeholder="Start writing here…" className="ruled-input block w-full outline-none placeholder:text-muted/60" />
         </div>
+        <p id="answer-count" className="mt-1 text-right text-sm text-muted">{answer.length.toLocaleString()} / 6,000 characters</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

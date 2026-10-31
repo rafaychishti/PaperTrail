@@ -4,36 +4,64 @@ import { markAnswer, type MarkInput } from "@/lib/marker";
 import { demoMark } from "@/lib/demo-marker";
 import { isDemo } from "@/lib/mode";
 import { db, isValidAnonId } from "@/lib/supabase";
+import { readJsonObject } from "@/lib/request";
 
 export const maxDuration = 60;
 
 const MAX_ANSWER = 6000;
 const MAX_IMAGES = 2;
 const MAX_IMAGE_B64 = 2_500_000; // ~1.8 MB per photo after browser resizing
+const MAX_IMAGES_TOTAL_B64 = 3_800_000;
+const MAX_REQUEST_BYTES = 4_200_000;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export async function POST(req: Request) {
-  let body: Record<string, unknown>;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "The request could not be read." }, { status: 400 });
+  const parsed = await readJsonObject(req, MAX_REQUEST_BYTES);
+  if (parsed.error === "too_large") {
+    return NextResponse.json({ error: "This request is too large. Try a smaller photo." }, { status: 413 });
   }
+  if (parsed.error) return NextResponse.json({ error: "The request could not be read." }, { status: 400 });
+  const { body } = parsed;
 
-  const questionId = String(body.questionId ?? "");
+  const questionId = typeof body.questionId === "string" ? body.questionId : "";
   const question = questionId === "custom" ? null : getQuestion(questionId);
   if (questionId !== "custom" && !question) {
     return NextResponse.json({ error: "That question doesn't exist." }, { status: 404 });
   }
 
-  const answerText = String(body.answerText ?? "").slice(0, MAX_ANSWER);
-  const rawImages = Array.isArray(body.images) ? body.images.slice(0, MAX_IMAGES) : [];
+  const answerText = typeof body.answerText === "string" ? body.answerText : "";
+  if (answerText.length > MAX_ANSWER) {
+    return NextResponse.json({ error: "Your typed answer is too long. Keep it under 6,000 characters." }, { status: 400 });
+  }
+
+  if (body.images !== undefined && !Array.isArray(body.images)) {
+    return NextResponse.json({ error: "Photos must be uploaded as a list." }, { status: 400 });
+  }
+  const rawImages = Array.isArray(body.images) ? body.images : [];
+  if (rawImages.length > MAX_IMAGES) {
+    return NextResponse.json({ error: "Add no more than 2 photos." }, { status: 400 });
+  }
   const images: MarkInput["images"] = [];
+  let totalImageB64 = 0;
   for (const img of rawImages) {
-    const mediaType = img?.mediaType;
-    const data = typeof img?.data === "string" ? img.data : "";
-    if (!IMAGE_TYPES.includes(mediaType) || !data || data.length > MAX_IMAGE_B64) {
+    if (!img || typeof img !== "object" || Array.isArray(img)) {
+      return NextResponse.json({ error: "A photo could not be read." }, { status: 400 });
+    }
+    const image = img as Record<string, unknown>;
+    const mediaType = IMAGE_TYPES.find((type) => type === image.mediaType);
+    const data = typeof image.data === "string" ? image.data : "";
+    if (
+      !mediaType ||
+      !data ||
+      data.length > MAX_IMAGE_B64 ||
+      data.length % 4 === 1 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(data)
+    ) {
       return NextResponse.json({ error: "Photos must be JPG, PNG or WebP and under 2 MB." }, { status: 400 });
+    }
+    totalImageB64 += data.length;
+    if (totalImageB64 > MAX_IMAGES_TOTAL_B64) {
+      return NextResponse.json({ error: "Your photos are too large. Try smaller images." }, { status: 413 });
     }
     images.push({ mediaType, data });
   }
@@ -41,8 +69,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Type your answer or add a photo of your working first." }, { status: 400 });
   }
 
-  const customQuestion = String(body.customQuestion ?? "").slice(0, 4000);
-  const customMarkScheme = String(body.customMarkScheme ?? "").slice(0, 6000);
+  const customQuestion = typeof body.customQuestion === "string" ? body.customQuestion : "";
+  const customMarkScheme = typeof body.customMarkScheme === "string" ? body.customMarkScheme : "";
+  if (customQuestion.length > 4000 || customMarkScheme.length > 6000) {
+    return NextResponse.json({ error: "Your question or mark scheme is too long." }, { status: 400 });
+  }
   if (!question && (!customQuestion.trim() || !customMarkScheme.trim())) {
     return NextResponse.json({ error: "Paste both the question and its mark scheme." }, { status: 400 });
   }
@@ -73,6 +104,7 @@ export async function POST(req: Request) {
   // Log the attempt anonymously for the progress page and the impact study.
   // Photos are never stored.
   let attemptId: string | null = null;
+  let saveWarning: string | null = null;
   const anonId = body.anonId;
   const supabase = db();
   if (supabase && isValidAnonId(anonId)) {
@@ -91,9 +123,20 @@ export async function POST(req: Request) {
       })
       .select("id")
       .single();
-    if (error) console.error("attempt log failed", error.message);
+    if (error) {
+      console.error("attempt log failed", error.message);
+      saveWarning = "Your answer was marked, but progress could not be saved to the database. A copy was saved in this browser.";
+    }
     attemptId = data?.id ?? null;
+  } else {
+    saveWarning = "Your answer was marked. Progress is saved in this browser on this device only.";
   }
 
-  return NextResponse.json({ result, attemptId, topic: question?.topic ?? "Own question", saved: !!attemptId });
+  return NextResponse.json({
+    result,
+    attemptId,
+    topic: question?.topic ?? "Own question",
+    saved: !!attemptId,
+    saveWarning,
+  });
 }
